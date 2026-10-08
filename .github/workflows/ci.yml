@@ -91,12 +91,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        if: ${{ env.DOCKERHUB_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
       - name: Resolve Context & Lowercase Repository Name
         id: prep
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "backend_image=ghcr.io/${REPO_LOWER}/backend" >> $GITHUB_OUTPUT
-          echo "frontend_image=ghcr.io/${REPO_LOWER}/frontend" >> $GITHUB_OUTPUT
+          BACKEND_TAGS="ghcr.io/${REPO_LOWER}/backend:${{ github.sha }},ghcr.io/${REPO_LOWER}/backend:latest"
+          FRONTEND_TAGS="ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }},ghcr.io/${REPO_LOWER}/frontend:latest"
+
+          if [ -n "$DOCKERHUB_USER" ]; then
+            DH_USER_LOWER=$(echo "$DOCKERHUB_USER" | tr '[:upper:]' '[:lower:]')
+            BACKEND_TAGS="${BACKEND_TAGS},${DH_USER_LOWER}/bugboard-backend:${{ github.sha }},${DH_USER_LOWER}/bugboard-backend:latest"
+            FRONTEND_TAGS="${FRONTEND_TAGS},${DH_USER_LOWER}/bugboard-frontend:${{ github.sha }},${DH_USER_LOWER}/bugboard-frontend:latest"
+          fi
+
+          echo "backend_tags=${BACKEND_TAGS}" >> $GITHUB_OUTPUT
+          echo "frontend_tags=${FRONTEND_TAGS}" >> $GITHUB_OUTPUT
 
           if [ -d "bugboard/backend" ]; then
             echo "backend_context=bugboard/backend" >> $GITHUB_OUTPUT
@@ -109,6 +127,8 @@ jobs:
             echo "frontend_context=frontend" >> $GITHUB_OUTPUT
             echo "frontend_dockerfile=frontend/Dockerfile" >> $GITHUB_OUTPUT
           fi
+        env:
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
 
       - name: Build and push Backend Image
         uses: docker/build-push-action@v5
@@ -116,9 +136,7 @@ jobs:
           context: ${{ steps.prep.outputs.backend_context }}
           file: ${{ steps.prep.outputs.backend_dockerfile }}
           push: true
-          tags: |
-            ${{ steps.prep.outputs.backend_image }}:${{ github.sha }}
-            ${{ steps.prep.outputs.backend_image }}:latest
+          tags: ${{ steps.prep.outputs.backend_tags }}
 
       - name: Build and push Frontend Image
         uses: docker/build-push-action@v5
@@ -126,6 +144,4 @@ jobs:
           context: ${{ steps.prep.outputs.frontend_context }}
           file: ${{ steps.prep.outputs.frontend_dockerfile }}
           push: true
-          tags: |
-            ${{ steps.prep.outputs.frontend_image }}:${{ github.sha }}
-            ${{ steps.prep.outputs.frontend_image }}:latest
+          tags: ${{ steps.prep.outputs.frontend_tags }}
