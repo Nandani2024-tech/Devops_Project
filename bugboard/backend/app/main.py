@@ -28,7 +28,7 @@ app.include_router(bugs.router)
 app.include_router(analysis.router)
 
 # Instrument Prometheus metrics
-Instrumentator().instrument(app).expose(app)
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 @app.get("/")
 def root():

@@ -113,6 +113,9 @@ ingress:
         - path: /api
           pathType: Prefix
           service: backend
+        - path: /metrics
+          pathType: Prefix
+          service: backend
         - path: /
           pathType: Prefix
           service: frontend

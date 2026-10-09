@@ -1,0 +1,159 @@
+# Grafana Community Helm Chart Values for BugBoard (Module 9)
+# Repo: grafana/grafana
+
+adminPassword: "admin"
+
+persistence:
+  enabled: false
+
+service:
+  type: ClusterIP
+  port: 80
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local:80
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: 5s
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 'bugboard'
+        orgId: 1
+        folder: 'BugBoard'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/bugboard
+
+dashboards:
+  bugboard:
+    bugboard-overview:
+      gnetId: null
+      revision: null
+      datasource: prometheus
+      json: |
+        {
+          "annotations": { "list": [] },
+          "editable": true,
+          "fiscalYearStartMonth": 0,
+          "graphTooltip": 1,
+          "id": null,
+          "links": [],
+          "liveNow": false,
+          "panels": [
+            {
+              "collapsed": false,
+              "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+              "id": 1,
+              "title": "Total HTTP Requests Rate (req/sec)",
+              "type": "timeseries",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "editorMode": "code",
+                  "expr": "sum(rate(http_requests_total[2m])) by (handler, status)",
+                  "legendFormat": "{{handler}} [{{status}}]",
+                  "range": true,
+                  "refId": "A"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "fillOpacity": 15
+                  },
+                  "unit": "reqps"
+                }
+              }
+            },
+            {
+              "collapsed": false,
+              "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+              "id": 2,
+              "title": "P95 Request Latency (seconds)",
+              "type": "timeseries",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "editorMode": "code",
+                  "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[2m])) by (le))",
+                  "legendFormat": "P95 Latency",
+                  "range": true,
+                  "refId": "A"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "fillOpacity": 15
+                  },
+                  "unit": "s"
+                }
+              }
+            },
+            {
+              "collapsed": false,
+              "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+              "id": 3,
+              "title": "Application Error Rate (5xx / 4xx)",
+              "type": "timeseries",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "editorMode": "code",
+                  "expr": "sum(rate(http_requests_total{status=~\"5..\"}[2m])) or vector(0)",
+                  "legendFormat": "5xx Server Errors",
+                  "range": true,
+                  "refId": "A"
+                },
+                {
+                  "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "editorMode": "code",
+                  "expr": "sum(rate(http_requests_total{status=~\"4..\"}[2m])) or vector(0)",
+                  "legendFormat": "4xx Client Errors",
+                  "range": true,
+                  "refId": "B"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "fillOpacity": 20
+                  },
+                  "unit": "reqps"
+                }
+              }
+            }
+          ],
+          "refresh": "5s",
+          "schemaVersion": 38,
+          "style": "dark",
+          "tags": ["bugboard", "fastapi", "kubernetes"],
+          "time": { "from": "now-15m", "to": "now" },
+          "title": "BugBoard Operations & Performance Dashboard",
+          "uid": "bugboard-ops"
+        }

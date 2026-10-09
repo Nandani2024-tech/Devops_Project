@@ -77,6 +77,10 @@ Devops_final_project/
 │       ├── Chart.yaml         # Chart metadata
 │       ├── values.yaml        # Configurable deployment values
 │       └── templates/         # Kubernetes resource templates
+├── monitoring/                # Observability & telemetry stack
+│   ├── prometheus-values.yaml # Prometheus scrape & retention configurations
+│   ├── grafana-values.yaml    # Grafana DataSource & auto-provisioning
+│   └── bugboard-dashboard.json# 3-panel BugBoard monitoring dashboard
 ├── terraform/                 # AWS Infrastructure as Code (VPC + EKS)
 │   ├── main.tf                # Provider & backend configuration
 │   ├── variables.tf           # Parameter declarations
@@ -139,6 +143,7 @@ Devops_final_project/
     │   ├── M6.md              # DevSecOps: Trivy Security Scan (5/5)
     │   ├── M7.md              # Terraform: AWS Infrastructure as Code (15/15)
     │   ├── M8.md              # Kubernetes + Helm Deployment (15/15)
+    │   ├── M9.md              # Observability: Prometheus + Grafana (10/10)
     │   └── (screenshot assets)
     ├── examples/              # Sample test project for live demonstrations
     │   ├── sample-project.zip # Ready-to-upload zipped test project
@@ -422,9 +427,9 @@ BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Ac
 | **M6** | DevSecOps — Trivy Security Scan | **5 / 5** | **Completed** | [bugboard/docs/M6.md](bugboard/docs/M6.md) |
 | **M7** | Terraform — AWS Infrastructure as Code | **15 / 15** | **Completed** | [bugboard/docs/M7.md](bugboard/docs/M7.md) |
 | **M8** | Kubernetes + Helm Deployment | **15 / 15** | **Completed** | [bugboard/docs/M8.md](bugboard/docs/M8.md) |
-| **M9** | Observability — Prometheus + Grafana | 10 | *Next* | Planned |
-| **M10**| Final Presentation + Documentation | 5 | *Upcoming* | Planned |
-| **Total** | | **85 / 100** | **In Progress** | |
+| **M9** | Observability — Prometheus + Grafana | **10 / 10** | **Completed** | [bugboard/docs/M9.md](bugboard/docs/M9.md) |
+| **M10**| Final Presentation + Documentation | 5 | *Next* | Planned |
+| **Total** | | **95 / 100** | **In Progress** | |
 
 ---
 
@@ -442,4 +447,5 @@ BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Ac
 - [x] DevSecOps Trivy vulnerability scanner quality gate in CI pipeline blocking on HIGH/CRITICAL CVEs (M6).
 - [x] Modular Terraform AWS Infrastructure as Code (VPC + Multi-AZ Subnets + EKS + IAM) (M7).
 - [x] High-availability Kubernetes + Helm deployment with NGINX Ingress and PVC persistence (M8).
-- [x] Detailed milestone reports with embedded screenshots in `bugboard/docs/` (M1–M8).
+- [x] Production Prometheus + Grafana telemetry pipeline with live dashboard panels (M9).
+- [x] Detailed milestone reports with embedded screenshots in `bugboard/docs/` (M1–M9).

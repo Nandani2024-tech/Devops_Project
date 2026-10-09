@@ -1,0 +1,41 @@
+# Prometheus Community Helm Chart Values for BugBoard (Module 9)
+# Repo: prometheus-community/prometheus
+
+server:
+  retention: "24h"
+  persistentVolume:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    servicePort: 80
+
+extraScrapeConfigs: |
+  - job_name: 'bugboard-backend'
+    scrape_interval: 5s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['bugboard-backend.bugboard.svc.cluster.local:8000']
+        labels:
+          app: 'bugboard'
+          component: 'backend'
+          environment: 'production'
+
+# Disable unnecessary auxiliary components to keep local footprint minimal
+alertmanager:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false

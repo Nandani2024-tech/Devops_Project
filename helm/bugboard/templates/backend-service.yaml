@@ -5,6 +5,10 @@ metadata:
   labels:
     {{- include "bugboard.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
 spec:
   type: {{ .Values.backend.service.type }}
   ports:
@@ -22,6 +26,10 @@ metadata:
   labels:
     {{- include "bugboard.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
 spec:
   type: {{ .Values.backend.service.type }}
   ports:
