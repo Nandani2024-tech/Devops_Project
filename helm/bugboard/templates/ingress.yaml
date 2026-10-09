@@ -1,0 +1,33 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "bugboard.fullname" . }}-ingress
+  labels:
+    {{- include "bugboard.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - {{- if .host }}
+      host: {{ .host | quote }}
+      {{- end }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ if eq .service "backend" }}{{ include "bugboard.fullname" $ }}-backend{{ else if eq .service "frontend" }}{{ include "bugboard.fullname" $ }}-frontend{{ else }}{{ .service }}{{ end }}
+                port:
+                  number: {{ if eq .service "backend" }}{{ $.Values.backend.service.port }}{{ else if eq .service "frontend" }}{{ $.Values.frontend.service.port }}{{ else }}80{{ end }}
+          {{- end }}
+    {{- end }}
+{{- end }}

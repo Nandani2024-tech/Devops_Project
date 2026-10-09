@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bugboard
+  labels:
+    name: bugboard
+    app.kubernetes.io/name: bugboard
+    app.kubernetes.io/part-of: bugboard

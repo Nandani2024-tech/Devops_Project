@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bugboard.fullname" . }}-backend
+  labels:
+    {{- include "bugboard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bugboard.backendSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bugboard.backendSelectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command:
+            - python
+            - -c
+            - |
+              import socket, time
+              print("Waiting for PostgreSQL service...")
+              for i in range(30):
+                  try:
+                      with socket.create_connection(("bugboard-postgres", 5432), timeout=2):
+                          print("PostgreSQL is ready!")
+                          break
+                  except Exception:
+                      time.sleep(2)
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "bugboard.fullname" . }}-secret
+                  key: DATABASE_URL
+            - name: UPLOAD_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bugboard.fullname" . }}-config
+                  key: UPLOAD_DIR
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bugboard.fullname" . }}-config
+                  key: CORS_ORIGINS
+          livenessProbe:
+            {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: uploads-data
+              mountPath: /data/uploads
+      volumes:
+        - name: uploads-data
+          emptyDir: {}
