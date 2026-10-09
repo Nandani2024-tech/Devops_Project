@@ -1,5 +1,8 @@
 # BugBoard — DevOps Final Capstone: FullStack Bug Tracker & Static Code Analyzer
 
+[![CI/CD Pipeline](https://github.com/Nandani2024-tech/Devops_Project/actions/workflows/ci.yml/badge.svg)](https://github.com/Nandani2024-tech/Devops_Project/actions/workflows/ci.yml)
+[![GHCR Packages](https://img.shields.io/badge/GHCR-Images%20Published-2496ED.svg)](https://github.com/Nandani2024-tech?tab=packages)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-Images%20Published-blue.svg)](https://hub.docker.com/)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
@@ -21,18 +24,24 @@
 - **Deterministic Static Code Analyzer:** Safely unzips archives, walks project trees, extracts code snippets around affected lines, diagnoses root causes, generates reproduction steps, and suggests code fixes.
 - **Automated Quality Gate:** Pytest suite with isolated in-memory test database fixtures (`conftest.py`).
 - **Production Containerization:** Hardened Docker setup with non-root user execution, multi-stage Node + Nginx frontend build on port `3000`, and Docker Compose multi-service orchestration.
+- **Automated CI/CD & Multi-Registry Publishing:** GitHub Actions pipeline executing backend Pytest tests, frontend Vite builds, and dual-publishing tagged container images to both GitHub Container Registry (GHCR) and Docker Hub.
 
 ```text
 Developer Laptop
        |
        v
-Git / GitHub (Version Control)
+Git / GitHub (Push to main branch)
        |
        v
-Pytest Quality Gate (Isolated In-Memory DB)
+GitHub Actions CI/CD Pipeline (.github/workflows/ci.yml)
+   ├── Job 1: test-backend (Python 3.11 + Pytest Quality Gate)
+   ├── Job 2: build-frontend (Node 20 + Vite Compilation Gate)
+   └── Job 3: build-and-push-images (Docker Buildx Multi-Registry)
+         ├──> GitHub Container Registry (ghcr.io)
+         └──> Docker Hub (hub.docker.com)
        |
        v
-Docker Compose Multi-Container Orchestration
+Multi-Container Runtime Stack
   +-------------------------------------------------------+
   |                                                       |
   |  Frontend (Port 3000)        Backend (Port 8000)      |
@@ -54,6 +63,9 @@ Docker Compose Multi-Container Orchestration
 
 ```text
 Devops_final_project/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # GitHub Actions CI/CD multi-job pipeline
 ├── .dockerignore              # Root Docker ignore rules
 ├── .gitignore                 # Root Git ignore rules (excludes .env, venv, caches)
 ├── README.md                  # Project documentation & execution guide
@@ -107,6 +119,7 @@ Devops_final_project/
     │   ├── M2.md              # Testing: Pytest + Code Quality (10/10)
     │   ├── M3.md              # Git & GitHub Version Control (5/5)
     │   ├── M4.md              # Docker: Dockerfile + Compose (10/10)
+    │   ├── M5.md              # CI/CD: GitHub Actions & Dual Registries (15/15)
     │   └── (screenshot assets)
     ├── examples/              # Sample test project for live demonstrations
     │   ├── sample-project.zip # Ready-to-upload zipped test project
@@ -352,7 +365,33 @@ All tests run against an **in-memory SQLite database (`sqlite:///:memory:`)** ma
 
 ---
 
-# PART F — CAPSTONE MILESTONES PROGRESS
+# PART F — CI/CD PIPELINE & DUAL CONTAINER REGISTRIES (M5)
+
+BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Actions** (`.github/workflows/ci.yml`). Every push to the `main` branch or manual `workflow_dispatch` trigger executes parallel quality gates before containerization.
+
+### Pipeline Architecture:
+1. **Quality Gate 1 (`test-backend`):** Spins up a Python 3.11 runner, installs `requirements.txt`, and executes `pytest -v`. The pipeline immediately terminates if any test fails, blocking flawed builds from advancing.
+2. **Quality Gate 2 (`build-frontend`):** Spins up a Node.js 20 runner, executes deterministic `npm ci` with `package-lock.json`, and runs `npm run build` to validate production Vite bundle compilation.
+3. **Containerization & Dual Push (`build-and-push-images`):**
+   - Configured with `needs: [test-backend, build-frontend]` — only executes if both tests and frontend compilation succeed.
+   - Sets up Docker Buildx for reproducible image builds.
+   - **GitHub Container Registry (GHCR):** Authenticates automatically to `ghcr.io` using ephemeral `${{ secrets.GITHUB_TOKEN }}` and `packages: write` permissions.
+   - **Docker Hub:** Authenticates to `docker.io` using repository secrets (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`).
+   - Builds both Backend and Frontend containers simultaneously tagging with:
+     - Immutable Git Commit SHA (`${{ github.sha }}`) for end-to-end traceability
+     - Rolling release tag (`latest`)
+
+### Published Container Registries:
+- **GitHub Container Registry (GHCR):**
+  - `ghcr.io/nandani2024-tech/devops_project/backend:latest` (and `:<sha>`)
+  - `ghcr.io/nandani2024-tech/devops_project/frontend:latest` (and `:<sha>`)
+- **Docker Hub:**
+  - `<dockerhub_username>/bugboard-backend:latest` (and `:<sha>`)
+  - `<dockerhub_username>/bugboard-frontend:latest` (and `:<sha>`)
+
+---
+
+# PART G — CAPSTONE MILESTONES PROGRESS
 
 | Milestone | Topic | Points | Status | Documentation & Proofs |
 | :---: | :--- | :---: | :---: | :--- |
@@ -360,22 +399,25 @@ All tests run against an **in-memory SQLite database (`sqlite:///:memory:`)** ma
 | **M2** | Testing: Pytest + Code Quality | **10 / 10** | **Completed** | [bugboard/docs/M2.md](bugboard/docs/M2.md) |
 | **M3** | Git and GitHub | **5 / 5** | **Completed** | [bugboard/docs/M3.md](bugboard/docs/M3.md) |
 | **M4** | Docker: Dockerfile + Compose | **10 / 10** | **Completed** | [bugboard/docs/M4.md](bugboard/docs/M4.md) |
-| **M5** | CI/CD — GitHub Actions Pipeline | 15 | *Next* | Planned |
-| **M6** | DevSecOps — Trivy Security Scan | 5 | *Upcoming* | Planned |
+| **M5** | CI/CD — GitHub Actions Pipeline | **15 / 15** | **Completed** | [bugboard/docs/M5.md](bugboard/docs/M5.md) |
+| **M6** | DevSecOps — Trivy Security Scan | 5 | *Next* | Planned |
 | **M7** | Terraform — AWS Infrastructure as Code | 15 | *Upcoming* | Planned |
 | **M8** | Kubernetes + Helm Deployment | 15 | *Upcoming* | Planned |
 | **M9** | Observability — Prometheus + Grafana | 10 | *Upcoming* | Planned |
 | **M10**| Final Presentation + Documentation | 5 | *Upcoming* | Planned |
-| **Total** | | **100** | | |
+| **Total** | | **50 / 100** | **In Progress** | |
 
 ---
 
 ## 7. Submission Checklist Summary
 
-- [x] Full-stack application running with FastAPI, React, and PostgreSQL.
-- [x] Database migrations managed by Alembic (`0001_initial_schema.py`).
-- [x] Complete REST API endpoints implemented (GET, POST, PUT, DELETE).
-- [x] 7 automated Pytest unit tests passing with isolated test database (`conftest.py`).
-- [x] Hardened Dockerfiles (non-root backend, multi-stage unprivileged Nginx frontend on port 3000).
-- [x] Single-command local stack execution (`docker compose up --build`).
-- [x] Detailed milestone reports with embedded screenshots in `bugboard/docs/`.
+- [x] Full-stack application running with FastAPI, React, and PostgreSQL (M1).
+- [x] Database migrations managed by Alembic (`0001_initial_schema.py`) (M1).
+- [x] Complete REST API endpoints implemented (GET, POST, PUT, DELETE) (M1).
+- [x] 7 automated Pytest unit tests passing with isolated test database (`conftest.py`) (M2).
+- [x] GitHub repository with conventional commit history and clean ignore rules (M3).
+- [x] Hardened Dockerfiles (non-root backend, multi-stage unprivileged Nginx frontend on port 3000) (M4).
+- [x] Single-command local stack execution (`docker compose up --build`) (M4).
+- [x] Multi-job GitHub Actions CI/CD pipeline passing with quality gates (`.github/workflows/ci.yml`) (M5).
+- [x] Automated container image publishing to GitHub Container Registry (GHCR) and Docker Hub (M5).
+- [x] Detailed milestone reports with embedded screenshots in `bugboard/docs/` (M1–M5).
