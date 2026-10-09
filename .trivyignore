@@ -1,0 +1,15 @@
+# DevSecOps Vulnerability Exemption Policy (.trivyignore)
+# Project: BugBoard Capstone
+# Date: 2026-10-09
+
+# -----------------------------------------------------------------------------
+# Starlette CVEs:
+# Upstream fix requires Starlette >= 1.3.1.
+# Constrained by prometheus-fastapi-instrumentator==7.0.0 which strictly pins
+# starlette < 1.0.0. Starlette 1.x introduces breaking ASGI router changes
+# that crash Prometheus route metrics collection.
+# Mitigated at runtime via FastAPI input validation and reverse proxy controls.
+# -----------------------------------------------------------------------------
+CVE-2024-47874
+CVE-2026-48818
+CVE-2026-54283

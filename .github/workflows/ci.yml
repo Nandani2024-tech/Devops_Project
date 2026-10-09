@@ -144,6 +144,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
+          trivyignores: '.trivyignore'
 
       - name: Run Trivy Security Vulnerability Scan on Frontend
         uses: aquasecurity/trivy-action@master
@@ -153,6 +154,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
+          trivyignores: '.trivyignore'
 
       # -----------------------------------------------------------
       # 3. Registry Authentication & Image Promotion (Post-Scan)
