@@ -68,7 +68,16 @@ Devops_final_project/
 │       └── ci.yml             # GitHub Actions CI/CD multi-job pipeline
 ├── .dockerignore              # Root Docker ignore rules
 ├── .gitignore                 # Root Git ignore rules (excludes .env, venv, caches)
+├── .trivyignore               # DevSecOps vulnerability suppression policy
 ├── README.md                  # Project documentation & execution guide
+├── terraform/                 # AWS Infrastructure as Code (VPC + EKS)
+│   ├── main.tf                # Provider & backend configuration
+│   ├── variables.tf           # Parameter declarations
+│   ├── vpc.tf                 # Multi-AZ VPC, subnets, IGW, NAT GW
+│   ├── eks.tf                 # EKS cluster control plane & worker node groups
+│   ├── outputs.tf             # Output resource identifiers
+│   ├── terraform.tfvars.example # Safe variable template
+│   └── .gitignore             # Terraform cache & state ignore rules
 └── bugboard/                  # Self-contained application stack
     ├── docker-compose.yml     # Multi-container orchestration (frontend, backend, postgres)
     ├── .dockerignore          # Application Docker ignore
@@ -121,6 +130,7 @@ Devops_final_project/
     │   ├── M4.md              # Docker: Dockerfile + Compose (10/10)
     │   ├── M5.md              # CI/CD: GitHub Actions & Dual Registries (15/15)
     │   ├── M6.md              # DevSecOps: Trivy Security Scan (5/5)
+    │   ├── M7.md              # Terraform: AWS Infrastructure as Code (15/15)
     │   └── (screenshot assets)
     ├── examples/              # Sample test project for live demonstrations
     │   ├── sample-project.zip # Ready-to-upload zipped test project
@@ -402,11 +412,11 @@ BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Ac
 | **M4** | Docker: Dockerfile + Compose | **10 / 10** | **Completed** | [bugboard/docs/M4.md](bugboard/docs/M4.md) |
 | **M5** | CI/CD — GitHub Actions Pipeline | **15 / 15** | **Completed** | [bugboard/docs/M5.md](bugboard/docs/M5.md) |
 | **M6** | DevSecOps — Trivy Security Scan | **5 / 5** | **Completed** | [bugboard/docs/M6.md](bugboard/docs/M6.md) |
-| **M7** | Terraform — AWS Infrastructure as Code | 15 | *Next* | Planned |
-| **M8** | Kubernetes + Helm Deployment | 15 | *Upcoming* | Planned |
+| **M7** | Terraform — AWS Infrastructure as Code | **15 / 15** | **Completed** | [bugboard/docs/M7.md](bugboard/docs/M7.md) |
+| **M8** | Kubernetes + Helm Deployment | 15 | *Next* | Planned |
 | **M9** | Observability — Prometheus + Grafana | 10 | *Upcoming* | Planned |
 | **M10**| Final Presentation + Documentation | 5 | *Upcoming* | Planned |
-| **Total** | | **55 / 100** | **In Progress** | |
+| **Total** | | **70 / 100** | **In Progress** | |
 
 ---
 
@@ -422,4 +432,5 @@ BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Ac
 - [x] Multi-job GitHub Actions CI/CD pipeline passing with quality gates (`.github/workflows/ci.yml`) (M5).
 - [x] Automated container image publishing to GitHub Container Registry (GHCR) and Docker Hub (M5).
 - [x] DevSecOps Trivy vulnerability scanner quality gate in CI pipeline blocking on HIGH/CRITICAL CVEs (M6).
-- [x] Detailed milestone reports with embedded screenshots in `bugboard/docs/` (M1–M6).
+- [x] Modular Terraform AWS Infrastructure as Code (VPC + Multi-AZ Subnets + EKS + IAM) (M7).
+- [x] Detailed milestone reports with embedded screenshots in `bugboard/docs/` (M1–M7).

@@ -1,0 +1,25 @@
+# AWS Region where infrastructure is provisioned
+aws_region = "us-east-1"
+
+# Environment identifier
+environment = "dev"
+
+# Cluster name used across resource tags and naming
+cluster_name = "bugboard-eks"
+
+# VPC CIDR block definition
+vpc_cidr = "10.0.0.0/16"
+
+# Public subnets across distinct Availability Zones (for ALB Ingress and NAT GW)
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+
+# Private subnets across distinct Availability Zones (for EKS Worker Nodes)
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24"]
+
+# EC2 instance types for EKS managed worker nodes
+node_instance_types = ["t3.medium"]
+
+# Auto-scaling capacity limits
+desired_capacity = 2
+min_capacity     = 1
+max_capacity     = 3
