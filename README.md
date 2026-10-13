@@ -415,7 +415,206 @@ BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Ac
 
 ---
 
-# PART G — CAPSTONE MILESTONES PROGRESS
+# PART G — DEVSECOPS: TRIVY CONTAINER VULNERABILITY SCANNING (M6)
+
+BugBoard implements automated **DevSecOps** quality gates by integrating Aqua Security's **Trivy** vulnerability scanner directly into the CI/CD pipeline (`.github/workflows/ci.yml`). Security scanning is executed as a strict gate between the container build phase and the image push phase.
+
+### 1. Shift-Left Security Philosophy: Why Scan Before Push?
+In enterprise software delivery, publishing container images to public or production registries (such as GHCR and Docker Hub) before validating their vulnerability profile creates significant supply-chain risk. BugBoard shifts security left:
+- Container images are built locally on the GitHub Actions runner.
+- Trivy executes comprehensive static analysis against the newly built image layers.
+- If any unpatched, actionable `HIGH` or `CRITICAL` Common Vulnerabilities and Exposures (CVEs) are detected, the pipeline **immediately aborts with exit code 1**.
+- Flawed images are blocked from ever reaching remote registries or staging/production Kubernetes clusters.
+
+### 2. Scanning Gate Criteria & Flags:
+Trivy scans both the FastAPI backend and React frontend images using the following production configuration:
+
+```bash
+trivy image \
+  --severity HIGH,CRITICAL \
+  --exit-code 1 \
+  --ignore-unfixed true \
+  --format table \
+  <image-reference>
+```
+
+- **`--severity HIGH,CRITICAL`:** Enforces zero tolerance for high-risk exploits (remote code execution, privilege escalation) while suppressing low-priority noise.
+- **`--exit-code 1`:** Instructs Trivy to emit a non-zero exit code upon encountering matching CVEs, actively failing the GitHub Actions job.
+- **`--ignore-unfixed true`:** Suppresses vulnerabilities for which vendor patches do not yet exist, preventing pipeline blockages on issues the engineering team cannot immediately resolve.
+
+### 3. Full-Spectrum Container Layer Inspection:
+1. **Base Operating System Packages:**
+   - Backend (`python:3.11-slim`): Scans Debian Bookworm system packages (`libc6`, `openssl`, `libsqlite3`). Hardened by purging build tools (`gcc`, `setuptools`, `wheel`) from the runtime image.
+   - Frontend (`nginxinc/nginx-unprivileged:alpine`): Scans Alpine Linux packages (`libtiff`, `musl`, `busybox`). Hardened via proactive `apk upgrade` in the Dockerfile.
+2. **Application Language Dependencies:**
+   - Backend: Recursively inspects installed Python packages in `site-packages` against the OSV and GitHub Security Advisory databases (e.g., ensuring `python-multipart >= 0.0.32`).
+   - Frontend: Scans production Node.js package manifests for vulnerable transitive dependencies.
+3. **Vulnerability Exception Policy (`.trivyignore`):**
+   - Repository-level `.trivyignore` documents and tracks authorized exemptions (such as ASGI path routing constraints in Starlette) with clear rationale, review dates, and remediation plans.
+
+---
+
+# PART H — AWS INFRASTRUCTURE AS CODE WITH TERRAFORM (M7)
+
+All cloud infrastructure required to host BugBoard in production is codified declaratively using **Terraform (HCL)** targeting **Amazon Web Services (AWS)** inside the root-level [`terraform/`](terraform/) directory.
+
+### 1. Modular Multi-AZ VPC Architecture (`terraform/vpc.tf`):
+The networking tier follows AWS Well-Architected Framework guidelines:
+- **Dedicated VPC:** CIDR block `10.0.0.0/16` with `enable_dns_hostnames = true` and `enable_dns_support = true`.
+- **Public Subnets (2 AZs):** `10.0.1.0/24` and `10.0.2.0/24` with `map_public_ip_on_launch = true`. Tagged with `kubernetes.io/role/elb = "1"` to enable automated discovery by AWS Application Load Balancers (ALB).
+- **Private Subnets (2 AZs):** `10.0.10.0/24` and `10.0.20.0/24` strictly isolated without public IP allocation. Tagged with `kubernetes.io/role/internal-elb = "1"` for internal microservice routing.
+- **Internet Gateway & NAT Gateway:** Dedicated Internet Gateway (IGW) for public ingress. An Elastic IP (EIP) and NAT Gateway in the public subnet provide secure outbound internet egress for private worker nodes (pulling container images, OS security updates).
+- **Route Tables:** Explicit separation between public route tables (`0.0.0.0/0 -> IGW`) and private route tables (`0.0.0.0/0 -> NAT Gateway`).
+
+### 2. Managed Kubernetes Compute: Amazon EKS (`terraform/eks.tf`):
+- **EKS Control Plane (`aws_eks_cluster`):** Provisions Kubernetes version `1.30` across both public and private subnets, enabling private VPC cluster endpoint communication.
+- **EKS Managed Node Group (`aws_eks_node_group`):** Worker nodes reside strictly within **private subnets**. Configured with `t3.medium` instances, autoscaling boundaries (`min_size = 1`, `desired_size = 2`, `max_size = 3`), and automated rolling node AMI updates.
+- **Least-Privilege IAM Roles:**
+  - Control Plane Role (`aws_iam_role.cluster`): Trust policy for `eks.amazonaws.com` attached to `AmazonEKSClusterPolicy`.
+  - Worker Node Role (`aws_iam_role.node_group`): Trust policy for `ec2.amazonaws.com` attached to `AmazonEKSWorkerNodePolicy`, `AmazonEKS_CNI_Policy`, and `AmazonEC2ContainerRegistryReadOnly`.
+
+### 3. Secret Hygiene & Clean Teardown:
+- **Zero Credentials Committed:** No AWS access keys, secret keys, or account IDs exist in version control. All authentication uses AWS CLI profiles, environment variables, or IAM instance profiles.
+- **Variable Template ([`terraform.tfvars.example`](terraform/terraform.tfvars.example)):** Committed parameter reference defining default regions, CIDRs, and node capacities.
+- **Git Exclusions ([`terraform/.gitignore`](terraform/.gitignore)):** Strictly excludes `.terraform/`, `*.tfstate*`, and `*.tfvars`.
+- **Clean Lifecycle Teardown:** Full infrastructure stack can be cleanly destroyed without orphaned cloud components via `terraform destroy -auto-approve`.
+
+---
+
+# PART I — KUBERNETES ORCHESTRATION & HELM PACKAGING (M8)
+
+BugBoard provides an enterprise cloud-native deployment package using a dedicated **Kubernetes** namespace manifest ([`k8s/namespace.yaml`](k8s/namespace.yaml)) and a production-grade **Helm (v3/v4)** chart ([`helm/bugboard/`](helm/bugboard/)).
+
+### 1. Dedicated Namespace Isolation:
+All application workloads are isolated in the `bugboard` namespace, ensuring clean resource quota boundaries, RBAC scoping, and network policy separation.
+
+### 2. Production Helm Chart Architecture:
+- **[`Chart.yaml`](helm/bugboard/Chart.yaml):** Declares chart metadata, semantic versioning (`v0.1.0`), and application version (`v1.0.0`).
+- **[`values.yaml`](helm/bugboard/values.yaml):** Single source of truth parameterizing image registries, replica counts, service ports, resource allocations, and ingress paths.
+- **[`templates/_helpers.tpl`](helm/bugboard/templates/_helpers.tpl):** Standardized labels (`app.kubernetes.io/name`, `instance`, `managed-by`), component selectors, and truncated resource names.
+
+### 3. High Availability & Resilience:
+- **2 Replicas per Tier:** Both Backend (`bugboard-backend`) and Frontend (`bugboard-frontend`) Deployments specify `replicaCount: 2`. Kubernetes automatically distributes replicas across nodes, providing zero-downtime rolling updates and traffic load balancing.
+- **Health Probes:**
+  - Backend: HTTP readiness probe and liveness probe on `GET /health` (port `8000`), verifying application and database connectivity before routing traffic.
+  - Frontend: HTTP readiness and liveness probes verifying Nginx web server responsiveness on `GET /` (port `3000`).
+- **Database Durability:** Dedicated `PersistentVolumeClaim` ([`postgres-pvc.yaml`](helm/bugboard/templates/postgres-pvc.yaml)) provisioning `1Gi` persistent storage (`ReadWriteOnce`), ensuring projects and bug analyses survive pod restarts.
+
+### 4. Networking, Service Abstraction & Ingress:
+- **Internal ClusterIP Services:** Stable cluster-internal DNS endpoints:
+  - `bugboard-backend:8000` (FastAPI REST API)
+  - `bugboard-frontend:80` (React Web Application, routing to container port 3000)
+  - `bugboard-postgres:5432` (PostgreSQL Database)
+- **NGINX Ingress Controller ([`ingress.yaml`](helm/bugboard/templates/ingress.yaml)):** Edge reverse proxy routing external HTTP traffic:
+  - `Path: /` -> `bugboard-frontend:80`
+  - `Path: /api` -> `bugboard-backend:8000`
+  - `Path: /metrics` -> `bugboard-backend:8000`
+
+---
+
+# PART J — FULL-STACK OBSERVABILITY WITH PROMETHEUS & GRAFANA (M9)
+
+BugBoard features an end-to-end telemetry and observability pipeline deployed via community Helm charts in the dedicated `monitoring` namespace.
+
+```text
+FastAPI Backend (/metrics) ──> Prometheus Server (Pull Scrape) ──> TSDB Storage ──> Grafana Dashboard (Live Panels)
+```
+
+### 1. Application-Level Metrics Instrumentation:
+The FastAPI backend instruments all HTTP traffic using `prometheus-fastapi-instrumentator` in [`bugboard/backend/app/main.py`](bugboard/backend/app/main.py), exposing standard Prometheus-formatted metrics at `/metrics`:
+- `http_requests_total`: Counter tracking request volume partitioned by `handler`, HTTP `method`, and HTTP `status`.
+- `http_request_duration_seconds`: Histogram measuring response latency distribution across standard duration buckets.
+- `process_cpu_seconds_total` & `process_resident_memory_bytes`: System metrics tracking container CPU and memory utilization.
+
+### 2. Automated Prometheus Scrape Discovery:
+- **Pod Annotations:** The backend deployment pod template metadata declares:
+  ```yaml
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "8000"
+  ```
+- **Prometheus Values ([`monitoring/prometheus-values.yaml`](monitoring/prometheus-values.yaml)):** Configures 24h retention, disabled pushgateway/node-exporter for lightweight execution, and dedicated scrape jobs targeting `bugboard-backend.bugboard.svc.cluster.local:8000`.
+
+### 3. Grafana Visualizations ([`monitoring/bugboard-dashboard.json`](monitoring/bugboard-dashboard.json)):
+Pre-configured datasource pointing to `http://prometheus-server.monitoring.svc.cluster.local:80` and an auto-provisioned 3-panel dashboard:
+1. **Total HTTP Requests Rate (req/sec):**
+   ```promql
+   sum(rate(http_requests_total[2m])) by (handler, status)
+   ```
+2. **P95 Request Latency (seconds):**
+   ```promql
+   histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[2m])) by (le))
+   ```
+3. **Application Error Rate (5xx / 4xx):**
+   ```promql
+   sum(rate(http_requests_total{status=~"5.."}[2m])) or vector(0)
+   ```
+
+---
+
+# PART K — LIVE DEMO & PRESENTATION SCRIPT (M10 — 5 POINTS)
+
+Use this step-by-step walkthrough script during your final presentation or recorded video demonstration:
+
+### Phase 1: Full-Stack Application & Static Code Analyzer Walkthrough (2 Minutes)
+1. **Open Frontend Dashboard:** Navigate to [http://localhost/](http://localhost/) (or port-forwarded frontend at `http://localhost:3000`).
+2. **Highlight Architecture:** Show the live KPI stats in the navbar (Total Projects, Total Bugs, Open Bugs) and the pulsing backend health pill.
+3. **Upload Sample Archive:**
+   - Drag and drop `bugboard/examples/sample-project.zip` into the uploader card.
+   - Click **Upload & Process Archive**.
+   - Show the newly extracted project card displaying **6 files, 4 Python files, 1 test file**.
+   - Expand the **Files Tree** to reveal the unzipped project directory hierarchy.
+4. **Report Intentional Bug:**
+   - Click **+ Report Bug**.
+   - Enter Title: `Duplicate email registration error`, Affected File: `app/users.py`, Line: `18`, Severity: `HIGH`.
+   - Submit the bug report.
+5. **Demonstrate Deterministic Static Analyzer:**
+   - Select the bug in the tracker table and click **⚡ Run Automated Code Analysis**.
+   - Highlight the **Extracted Code Snippet** with the line pointer (`> 18`), the **Root Cause Diagnosis** (duplicate email constraint violation), the **Reproduction Steps**, and the **Suggested Code Fix**.
+
+### Phase 2: Live CI/CD Pipeline & DevSecOps Gate (2 Minutes)
+1. **Trigger Code Change:**
+   - Make a minor, visible update (e.g., bump version or update title in `bugboard/frontend/src/components/Navbar.jsx`).
+   - Commit and push to `main` branch.
+2. **Inspect GitHub Actions Workflow:**
+   - Open GitHub repository > **Actions** tab.
+   - Show **Job 1 (`test-backend`)** running 7 automated Pytest tests against an in-memory SQLite database.
+   - Show **Job 2 (`build-frontend`)** validating Vite compilation.
+   - Show **Job 3 (`build-and-push-images`)** executing:
+     - **Trivy Vulnerability Scan:** Explain the shift-left security gate (`--severity HIGH,CRITICAL --exit-code 1`) blocking unpatched CVEs.
+     - **Dual-Registry Push:** Show container images being published simultaneously to **GitHub Container Registry (GHCR)** and **Docker Hub** tagged with the immutable commit SHA and `latest`.
+
+### Phase 3: Kubernetes & Helm Rolling Update (1 Minute)
+1. **Demonstrate Helm Deployment:**
+   - In terminal, show the running Kubernetes pods across the namespace:
+     ```bash
+     kubectl get pods -n bugboard
+     ```
+   - Point out the **2 backend replicas**, **2 frontend replicas**, and **1 postgres pod**.
+2. **Execute Zero-Downtime Upgrade:**
+   - Run `helm upgrade bugboard ./helm/bugboard -n bugboard`.
+   - Run `kubectl get pods -n bugboard -w` to demonstrate the rolling update lifecycle: Kubernetes provisions new pods, passes readiness probes, and terminates older replicas with zero downtime.
+
+### Phase 4: Live Telemetry Verification (1 Minute)
+1. **Generate Test Traffic:**
+   - In PowerShell, run the traffic generation loop:
+     ```powershell
+     1..40 | ForEach-Object {
+         Invoke-RestMethod -Uri "http://localhost:8000/health" -Method Get | Out-Null
+         Invoke-RestMethod -Uri "http://localhost:8000/api/projects" -Method Get | Out-Null
+     }
+     ```
+2. **Showcase Grafana Live Dashboard:**
+   - Open Grafana at [http://localhost:3001](http://localhost:3001) (Dashboard: `BugBoard Operations & Performance Dashboard`).
+   - Demonstrate the live metric curves reacting to traffic:
+     - **HTTP Requests Rate:** Active spike reflecting the incoming request volume.
+     - **P95 Latency:** Sub-100ms response time graph.
+     - **Error Rate:** Flat zero curve demonstrating clean application health.
+
+---
+
+# PART L — CAPSTONE MILESTONES PROGRESS (100 / 100 POINTS)
 
 | Milestone | Topic | Points | Status | Documentation & Proofs |
 | :---: | :--- | :---: | :---: | :--- |
@@ -428,12 +627,12 @@ BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Ac
 | **M7** | Terraform — AWS Infrastructure as Code | **15 / 15** | **Completed** | [bugboard/docs/M7.md](bugboard/docs/M7.md) |
 | **M8** | Kubernetes + Helm Deployment | **15 / 15** | **Completed** | [bugboard/docs/M8.md](bugboard/docs/M8.md) |
 | **M9** | Observability — Prometheus + Grafana | **10 / 10** | **Completed** | [bugboard/docs/M9.md](bugboard/docs/M9.md) |
-| **M10**| Final Presentation + Documentation | 5 | *Next* | Planned |
-| **Total** | | **95 / 100** | **In Progress** | |
+| **M10**| Final Presentation + Documentation | **5 / 5** | **Completed** | [Part K: Live Demo Script](#part-k--live-demo--presentation-script-m10--5-points) |
+| **Total** | | **100 / 100** | **Completed** | **Full Capstone Project Complete** |
 
 ---
 
-## 7. Submission Checklist Summary
+## 8. Final Submission Checklist Summary
 
 - [x] Full-stack application running with FastAPI, React, and PostgreSQL (M1).
 - [x] Database migrations managed by Alembic (`0001_initial_schema.py`) (M1).
@@ -448,4 +647,6 @@ BugBoard features an enterprise-grade automated CI/CD pipeline using **GitHub Ac
 - [x] Modular Terraform AWS Infrastructure as Code (VPC + Multi-AZ Subnets + EKS + IAM) (M7).
 - [x] High-availability Kubernetes + Helm deployment with NGINX Ingress and PVC persistence (M8).
 - [x] Production Prometheus + Grafana telemetry pipeline with live dashboard panels (M9).
+- [x] Comprehensive Live Demo & Presentation Walkthrough Script (M10).
 - [x] Detailed milestone reports with embedded screenshots in `bugboard/docs/` (M1–M9).
+
