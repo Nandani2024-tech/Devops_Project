@@ -1,5 +1,7 @@
 # BugBoard — DevOps Final Capstone: FullStack Bug Tracker & Static Code Analyzer
 
+> **Live_Demo** : [Demo_Video](https://drive.google.com/drive/folders/1lzfZQQo042O2FlpWg6JZNrWmdVlhFwBe?usp=drive_link)
+
 [![CI/CD Pipeline](https://github.com/Nandani2024-tech/Devops_Project/actions/workflows/ci.yml/badge.svg)](https://github.com/Nandani2024-tech/Devops_Project/actions/workflows/ci.yml)
 [![GHCR Packages](https://img.shields.io/badge/GHCR-Images%20Published-2496ED.svg)](https://github.com/Nandani2024-tech?tab=packages)
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-Images%20Published-blue.svg)](https://hub.docker.com/)
